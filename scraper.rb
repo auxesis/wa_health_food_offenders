@@ -30,12 +30,8 @@ def fetch
   @records = JSON.parse(result)
 end
 
-def upstream_records
+def records
   fetch
-end
-
-def upstream_record_ids
-  upstream_records.map{|r| r['notice_pdf_url']}
 end
 
 def geocode(record)
@@ -56,19 +52,16 @@ def geocode(record)
   record
 end
 
-begin
-  existing_record_ids = ScraperWiki.select('notice_pdf_url from data').map {|r| r['notice_pdf_url']}
+def existing_record_ids
+  ScraperWiki.select('notice_pdf_url from data').map {|r| r['notice_pdf_url']}
 rescue SqliteMagic::NoSuchTable
-  existing_record_ids = []
+  []
 end
 
-new_records = (upstream_record_ids - existing_record_ids)
+new_records = records.select {|r| !existing_record_ids.include?(r['notice_pdf_url']) }
 
 puts "### Geocoding #{new_records.size} new records"
 
-new_records.map! do |id|
-  record = upstream_records.find{|r| r['notice_pdf_url'] == id}
-  geocode(record)
-end
+new_records.map! { |record| geocode(record) }
 
 ScraperWiki.save_sqlite(['notice_pdf_url'], new_records)
